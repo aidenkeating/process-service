@@ -3,6 +3,7 @@ package com.redhat.cajun.navy.process.message.listeners;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,10 +11,16 @@ import static org.mockito.Mockito.when;
 import static org.mockito.MockitoAnnotations.initMocks;
 import static org.springframework.test.util.ReflectionTestUtils.setField;
 
+import java.util.Collections;
+
 import org.jbpm.process.instance.ProcessInstance;
 import org.jbpm.services.api.ProcessService;
+import org.jbpm.services.api.query.QueryResultMapper;
+import org.jbpm.services.api.query.QueryService;
+import org.jbpm.services.api.query.model.QueryParam;
 import org.junit.Before;
 import org.junit.Test;
+import org.kie.api.runtime.query.QueryContext;
 import org.kie.internal.process.CorrelationKey;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -39,6 +46,9 @@ public class ResponderUpdatedEventMessageListenerTest {
     @Mock
     private Acknowledgment ack;
 
+    @Mock
+    private QueryService queryService;
+
     @Captor
     private ArgumentCaptor<CorrelationKey> correlationKeyCaptor;
 
@@ -50,11 +60,13 @@ public class ResponderUpdatedEventMessageListenerTest {
         messageListener = new ResponderUpdatedEventMessageListener();
         setField(messageListener, null, ptm, PlatformTransactionManager.class);
         setField(messageListener, null, processService, ProcessService.class);
+        setField(messageListener, null, queryService, QueryService.class);
         when(ptm.getTransaction(any())).thenReturn(transactionStatus);
         when(processInstance.getId()).thenReturn(100L);
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testProcessMessage() {
         String json = "{" + "\"messageType\" : \"ResponderUpdatedEvent\"," +
                 "\"id\":\"messageId\"," +
@@ -75,6 +87,8 @@ public class ResponderUpdatedEventMessageListenerTest {
                 "}" + "}" + "}";
 
         when(processService.getProcessInstance(any(CorrelationKey.class))).thenReturn(processInstance);
+        when(queryService.query(anyString(), any(QueryResultMapper.class), any(QueryContext.class), any(QueryParam.class)))
+                .thenReturn(Collections.singletonList("ResponderAvailable"));
 
         messageListener.processMessage(json, "responderId", "test-topic", 1, ack);
 
@@ -86,6 +100,7 @@ public class ResponderUpdatedEventMessageListenerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     public void testProcessMessageWhenError() {
         String json = "{" + "\"messageType\" : \"ResponderUpdatedEvent\"," +
                 "\"id\":\"messageId\"," +
@@ -106,6 +121,8 @@ public class ResponderUpdatedEventMessageListenerTest {
                 "}" + "}" + "}";
 
         when(processService.getProcessInstance(any(CorrelationKey.class))).thenReturn(processInstance);
+        when(queryService.query(anyString(), any(QueryResultMapper.class), any(QueryContext.class), any(QueryParam.class)))
+                .thenReturn(Collections.singletonList("ResponderAvailable"));
 
         messageListener.processMessage(json, "responderId", "test-topic", 1, ack);
 

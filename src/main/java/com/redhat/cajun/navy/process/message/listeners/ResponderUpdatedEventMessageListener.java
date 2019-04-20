@@ -1,15 +1,25 @@
 package com.redhat.cajun.navy.process.message.listeners;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
 import com.redhat.cajun.navy.process.message.model.Message;
 import com.redhat.cajun.navy.process.message.model.ResponderUpdatedEvent;
+import org.dashbuilder.dataset.DataColumn;
+import org.dashbuilder.dataset.DataSet;
 import org.jbpm.services.api.ProcessService;
+import org.jbpm.services.api.query.QueryResultMapper;
+import org.jbpm.services.api.query.QueryService;
+import org.jbpm.services.api.query.model.QueryParam;
 import org.kie.api.runtime.process.ProcessInstance;
 import org.kie.internal.KieInternalServices;
 import org.kie.internal.process.CorrelationKey;
 import org.kie.internal.process.CorrelationKeyFactory;
+import org.kie.internal.query.QueryContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +44,9 @@ public class ResponderUpdatedEventMessageListener {
 
     @Autowired
     private ProcessService processService;
+
+    @Autowired
+    private QueryService queryService;
 
     @Autowired
     private PlatformTransactionManager transactionManager;
@@ -68,6 +81,8 @@ public class ResponderUpdatedEventMessageListener {
 
             Boolean available = "success".equals(message.getBody().getStatus());
 
+            log.debug("Signaling process with correlationkey '" + correlationKey + ". Responder '" + key + "', available '" + available + "'." );
+
             TransactionTemplate template = new TransactionTemplate(transactionManager);
             template.execute((TransactionStatus s) -> {
                 int count = 1;
@@ -85,12 +100,27 @@ public class ResponderUpdatedEventMessageListener {
                         }
                         count++;
                     } else {
+                        count = 1;
                         break;
                     }
                 }
                 if (instance == null) {
                     log.warn("Process instance with correlationKey '" + incidentId + "' not found.");
                     return null;
+                }
+                // check if process is waiting on 'ResponderAvailable' signal
+                while (count <= 3) {
+                    if (!waitingForSignal(instance.getId())) {
+                        log.warn("Try " + count + " - Process instance with correlationKey '" + incidentId + "' is not waiting for signal 'ResponderAvailable'.");
+                        try {
+                            Thread.sleep(300);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        count++;
+                    } else {
+                        break;
+                    }
                 }
                 processService.signalProcessInstance(instance.getId(), SIGNAL_RESPONDER_AVAILABLE, available);
                 return null;
@@ -116,5 +146,57 @@ public class ResponderUpdatedEventMessageListener {
         }
         return false;
     }
+
+    private boolean waitingForSignal(long instanceId) {
+        List<String> signals = queryService.query("signalsByProcessInstance", new ProcessSignalQueryMapper(), new QueryContext(),
+                QueryParam.equalsTo("INSTANCEID", instanceId));
+        return signals.contains("ResponderAvailable");
+    }
+
+    public static class ProcessSignalQueryMapper implements QueryResultMapper<List<String>> {
+
+        @Override
+        public List<String> map(Object result) {
+            if (result instanceof DataSet) {
+                DataSet dataSetResult = (DataSet) result;
+                List<String> mappedResult = new ArrayList<>();
+                if (dataSetResult != null) {
+                    for (int i = 0; i < dataSetResult.getRowCount(); i++) {
+                        String signal = getColumnStringValue(dataSetResult, "element", i);
+                        mappedResult.add(signal);
+                    }
+                }
+                return mappedResult;
+            }
+            throw new IllegalArgumentException("Unsupported result for mapping " + result);
+        }
+
+        private String getColumnStringValue(DataSet currentDataSet, String columnId, int index){
+            DataColumn column = currentDataSet.getColumnById( columnId );
+            if (column == null) {
+                return null;
+            }
+
+            Object value = column.getValues().get(index);
+            return value != null ? value.toString() : null;
+        }
+
+        @Override
+        public String getName() {
+            return "signals";
+        }
+
+        @Override
+        public Class<?> getType() {
+            return String.class;
+        }
+
+        @Override
+        public QueryResultMapper<List<String>> forColumnMapping(Map<String, String> columnMapping) {
+            return new ProcessSignalQueryMapper();
+        }
+    }
+
+
 
 }
