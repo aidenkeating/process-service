@@ -1,6 +1,7 @@
 package com.redhat.cajun.navy.process;
 
 import org.jbpm.kie.services.impl.query.SqlQueryDefinition;
+import org.jbpm.services.api.query.QueryNotFoundException;
 import org.jbpm.services.api.query.QueryService;
 import org.jbpm.services.api.query.model.QueryDefinition;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +16,14 @@ public class JbpmQueryConfiguration {
 
     @Bean
     public QueryDefinition processSignalQuery() {
-        QueryDefinition processSignalQuery = new SqlQueryDefinition("signalsByProcessInstance", "source");
-        processSignalQuery.setExpression("select * from eventtypes");
-        queryService.registerQuery(processSignalQuery);
+        QueryDefinition processSignalQuery;
+        try {
+            processSignalQuery = queryService.getQuery("signalsByProcessInstance");
+        } catch (QueryNotFoundException e) {
+            processSignalQuery = new SqlQueryDefinition("signalsByProcessInstance", "source");
+            processSignalQuery.setExpression("select * from eventtypes");
+            queryService.registerQuery(processSignalQuery);
+        }
         return processSignalQuery;
     }
 
