@@ -74,7 +74,7 @@ public class ResponderUpdatedEventMessageListener {
             Boolean available = "success".equals(message.getBody().getStatus());
 
             log.debug("Signaling process with correlationkey '" + correlationKey + ". Responder '" + key + "', available '" + available + "'." );
-
+            Thread.sleep(300);
             final IntegerHolder holder = new IntegerHolder(1);
             while (holder.getValue() > 0 && holder.getValue() <= 3) {
                 try {
