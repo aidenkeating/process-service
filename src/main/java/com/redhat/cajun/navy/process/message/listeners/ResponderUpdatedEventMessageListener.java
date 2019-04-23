@@ -22,6 +22,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
@@ -76,30 +77,36 @@ public class ResponderUpdatedEventMessageListener {
 
             final IntegerHolder holder = new IntegerHolder(1);
             while (holder.getValue() > 0 && holder.getValue() <= 3) {
-                TransactionTemplate template = new TransactionTemplate(transactionManager);
-                template.execute((TransactionStatus s) -> {
-                    ProcessInstance instance = null;
-                    // it seems that sometimes the process instance has not been updated in the database when calling getProcessInstance().
-                    // dirty hack: if the process instance cannot be found, pause the thread for 300 ms and retry. Bail out after 3 times.
-                    instance = processService.getProcessInstance(correlationKey);
-                    if (instance == null) {
-                        log.warn("Try " + holder.getValue() + " - Process instance with correlationKey '" + incidentId + "' not found.");
-                        holder.increaseValue();
+                try {
+                    TransactionTemplate template = new TransactionTemplate(transactionManager);
+                    template.execute((TransactionStatus s) -> {
+                        ProcessInstance instance = null;
+                        // it seems that sometimes the process instance has not been updated in the database when calling getProcessInstance().
+                        // dirty hack: if the process instance cannot be found, pause the thread for 300 ms and retry. Bail out after 3 times.
+                        instance = processService.getProcessInstance(correlationKey);
+                        if (instance == null) {
+                            log.warn("Try " + holder.getValue() + " - Process instance with correlationKey '" + incidentId + "' not found.");
+                            holder.increaseValue();
+                            return null;
+                        }
+                        // check if process is waiting on 'ResponderAvailable' signal
+                        if (!WaitingForSignalHelper.waitingForSignal(queryService, instance.getId(), "ResponderAvailable")) {
+                            log.warn("Try " + holder.getValue() + " - Process instance with correlationKey '" + incidentId + "' is not waiting for signal 'ResponderAvailable'.");
+                            holder.increaseValue();
+                            return null;
+                        }
+                        log.info("Signaling process instance " + instance.getId() + " for incident '" + incidentId + "'");
+                        processService.signalProcessInstance(instance.getId(), SIGNAL_RESPONDER_AVAILABLE, available);
+                        holder.reset();
                         return null;
-                    }
-                    // check if process is waiting on 'ResponderAvailable' signal
-                    if (!WaitingForSignalHelper.waitingForSignal(queryService, instance.getId(), "ResponderAvailable")) {
-                        log.warn("Try " + holder.getValue() + " - Process instance with correlationKey '" + incidentId + "' is not waiting for signal 'ResponderAvailable'.");
-                        holder.increaseValue();
-                        return null;
-                    }
-                    processService.signalProcessInstance(instance.getId(), SIGNAL_RESPONDER_AVAILABLE, available);
-                    holder.reset();
-                    return null;
-                });
+                    });
+                } catch (UnexpectedRollbackException e) {
+                    log.error("Transaction rolled back for incident '" + incidentId + "'", e);
+                }
                 if (holder.getValue() > 3) {
                     log.warn("Process instance with correlationKey '" + incidentId + "' is not waiting for signal 'ResponderAvailable'. Process instance is not signaled.");
                 } else if (holder.getValue() > 0) {
+                    log.warn("Sleeping for 300 ms");
                     Thread.sleep(300);
                 }
             }
