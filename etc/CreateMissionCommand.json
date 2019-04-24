@@ -1,0 +1,10 @@
+{
+  "incidentId" : "incident123",
+  "responderId" : "responder123",
+  "responderStartLat" : "30.12345",
+  "responderStartLong" : "-77.98765",
+  "incidentLat" : "31.8765",
+  "incidentLong" : "-78.12345",
+  "destinationLat" : "-31.65445",
+  "destinationLong" :  "-78.36985"
+}

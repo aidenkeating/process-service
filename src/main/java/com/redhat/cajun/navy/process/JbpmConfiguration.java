@@ -69,6 +69,8 @@ public class JbpmConfiguration {
 
         ((KModuleDeploymentService) deploymentService).setExecutorService(service);
 
+        service.init();
+
         return service;
     }
 
