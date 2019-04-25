@@ -5,8 +5,6 @@ import javax.persistence.EntityManagerFactory;
 
 import org.jbpm.executor.ExecutorServiceFactory;
 import org.jbpm.executor.impl.event.ExecutorEventSupportImpl;
-import org.jbpm.kie.services.impl.KModuleDeploymentService;
-import org.jbpm.services.api.DeploymentService;
 import org.jbpm.shared.services.impl.TransactionalCommandService;
 import org.jbpm.springboot.autoconfigure.JBPMProperties;
 import org.kie.api.executor.ExecutorService;
@@ -21,7 +19,7 @@ public class JbpmExecutorServiceConfiguration {
     private JBPMProperties properties;
 
     @Bean
-    public ExecutorService executorService(EntityManagerFactory entityManagerFactory, TransactionalCommandService transactionalCommandService, DeploymentService deploymentService) {
+    public ExecutorService executorService(EntityManagerFactory entityManagerFactory, TransactionalCommandService transactionalCommandService) {
 
         System.out.println("Executor!!!!");
         ExecutorEventSupportImpl eventSupport = new ExecutorEventSupportImpl();
@@ -32,10 +30,6 @@ public class JbpmExecutorServiceConfiguration {
         service.setRetries(properties.getExecutor().getRetries());
         service.setThreadPoolSize(properties.getExecutor().getThreadPoolSize());
         service.setTimeunit(TimeUnit.valueOf(properties.getExecutor().getTimeUnit()));
-
-        ((KModuleDeploymentService) deploymentService).setExecutorService(service);
-
-        service.init();
 
         return service;
     }
