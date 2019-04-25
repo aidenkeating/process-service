@@ -8,7 +8,6 @@ import org.jbpm.kie.services.impl.bpmn2.BPMN2DataServiceImpl;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.api.DefinitionService;
 import org.jbpm.services.api.DeploymentService;
-import org.jbpm.springboot.autoconfigure.JBPMProperties;
 import org.kie.api.executor.ExecutorService;
 import org.kie.api.runtime.manager.RuntimeManagerFactory;
 import org.kie.internal.identity.IdentityProvider;
@@ -18,19 +17,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class JbpmConfiguration {
+public class JbpmDeploymentServiceConfiguration {
 
     protected static final String PERSISTENCE_UNIT_NAME = "org.jbpm.domain";
 
     private ApplicationContext applicationContext;
 
     @Autowired
-    private JBPMProperties properties;
-
-    @Autowired
     private ExecutorService executorService;
 
-    public JbpmConfiguration(ApplicationContext applicationContext) {
+    public JbpmDeploymentServiceConfiguration(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
 
@@ -54,25 +50,5 @@ public class JbpmConfiguration {
 
         return deploymentService;
     }
-
-//    @Bean
-//    public ExecutorService executorService(EntityManagerFactory entityManagerFactory, TransactionalCommandService transactionalCommandService, DeploymentService deploymentService) {
-//
-//        System.out.println("Executor!!!!");
-//        ExecutorEventSupportImpl eventSupport = new ExecutorEventSupportImpl();
-//        // configure services
-//        ExecutorService service = ExecutorServiceFactory.newExecutorService(entityManagerFactory, transactionalCommandService, eventSupport);
-//
-//        service.setInterval(properties.getExecutor().getInterval());
-//        service.setRetries(properties.getExecutor().getRetries());
-//        service.setThreadPoolSize(properties.getExecutor().getThreadPoolSize());
-//        service.setTimeunit(TimeUnit.valueOf(properties.getExecutor().getTimeUnit()));
-//
-//        ((KModuleDeploymentService) deploymentService).setExecutorService(service);
-//
-//        service.init();
-//
-//        return service;
-//    }
 
 }
