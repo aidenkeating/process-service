@@ -1,18 +1,13 @@
 package com.redhat.cajun.navy.process;
 
-import java.util.concurrent.TimeUnit;
 import javax.persistence.EntityManagerFactory;
 
 import com.redhat.cajun.navy.process.spring.SpringKModuleDeploymentService;
-import org.jbpm.executor.ExecutorServiceFactory;
-import org.jbpm.executor.impl.event.ExecutorEventSupportImpl;
 import org.jbpm.kie.services.impl.FormManagerService;
-import org.jbpm.kie.services.impl.KModuleDeploymentService;
 import org.jbpm.kie.services.impl.bpmn2.BPMN2DataServiceImpl;
 import org.jbpm.runtime.manager.impl.jpa.EntityManagerFactoryManager;
 import org.jbpm.services.api.DefinitionService;
 import org.jbpm.services.api.DeploymentService;
-import org.jbpm.shared.services.impl.TransactionalCommandService;
 import org.jbpm.springboot.autoconfigure.JBPMProperties;
 import org.kie.api.executor.ExecutorService;
 import org.kie.api.runtime.manager.RuntimeManagerFactory;
@@ -31,6 +26,9 @@ public class JbpmConfiguration {
 
     @Autowired
     private JBPMProperties properties;
+
+    @Autowired
+    private ExecutorService executorService;
 
     public JbpmConfiguration(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
@@ -51,27 +49,30 @@ public class JbpmConfiguration {
 
         ((SpringKModuleDeploymentService) deploymentService).addListener(((BPMN2DataServiceImpl) definitionService));
 
+        ((SpringKModuleDeploymentService) deploymentService).setExecutorService(executorService);
+        executorService.init();
+
         return deploymentService;
     }
 
-    @Bean
-    public ExecutorService executorService(EntityManagerFactory entityManagerFactory, TransactionalCommandService transactionalCommandService, DeploymentService deploymentService) {
-
-        System.out.println("Executor!!!!");
-        ExecutorEventSupportImpl eventSupport = new ExecutorEventSupportImpl();
-        // configure services
-        ExecutorService service = ExecutorServiceFactory.newExecutorService(entityManagerFactory, transactionalCommandService, eventSupport);
-
-        service.setInterval(properties.getExecutor().getInterval());
-        service.setRetries(properties.getExecutor().getRetries());
-        service.setThreadPoolSize(properties.getExecutor().getThreadPoolSize());
-        service.setTimeunit(TimeUnit.valueOf(properties.getExecutor().getTimeUnit()));
-
-        ((KModuleDeploymentService) deploymentService).setExecutorService(service);
-
-        service.init();
-
-        return service;
-    }
+//    @Bean
+//    public ExecutorService executorService(EntityManagerFactory entityManagerFactory, TransactionalCommandService transactionalCommandService, DeploymentService deploymentService) {
+//
+//        System.out.println("Executor!!!!");
+//        ExecutorEventSupportImpl eventSupport = new ExecutorEventSupportImpl();
+//        // configure services
+//        ExecutorService service = ExecutorServiceFactory.newExecutorService(entityManagerFactory, transactionalCommandService, eventSupport);
+//
+//        service.setInterval(properties.getExecutor().getInterval());
+//        service.setRetries(properties.getExecutor().getRetries());
+//        service.setThreadPoolSize(properties.getExecutor().getThreadPoolSize());
+//        service.setTimeunit(TimeUnit.valueOf(properties.getExecutor().getTimeUnit()));
+//
+//        ((KModuleDeploymentService) deploymentService).setExecutorService(service);
+//
+//        service.init();
+//
+//        return service;
+//    }
 
 }
